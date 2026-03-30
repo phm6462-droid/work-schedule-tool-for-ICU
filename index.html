@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>근무표 도구</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --ok: #065f46;
+      --warn: #92400e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+    label {
+      display: block;
+      font-weight: 700;
+      margin: 14px 0 8px;
+    }
+    input[type="file"], input[type="text"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      font-size: 14px;
+    }
+    .hint, .status {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      white-space: pre-wrap;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 13px;
+      background: #fff;
+    }
+    .selected-people {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 14px;
+    }
+    .person-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .pill-x {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      color: var(--muted);
+      padding: 0;
+    }
+    .tabbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .tabbar button {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .tabbar button.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .section-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin: 8px 0 12px;
+    }
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+    .weekday, .day {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      min-height: 120px;
+      padding: 10px;
+    }
+    .weekday {
+      min-height: auto;
+      text-align: center;
+      font-weight: 800;
+      background: #f8fafc;
+    }
+    .weekday.sun, .day.sun, .day.holiday {
+      background: #fee2e2;
+    }
+    .weekday.sat, .day.sat {
+      background: #dbeafe;
+    }
+    .day.empty {
+      background: transparent;
+      border-style: dashed;
+    }
+    .date {
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .shift {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .coworkers {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: normal;
+    }
+    .me-name {
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .muted { color: var(--muted); }
+    .table-wrap { overflow: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+      white-space: pre-wrap;
+    }
+    th { background: #f8fafc; }
+    .two-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .small { font-size: 12px; color: var(--muted); }
+    @media (max-width: 960px) {
+      .grid, .two-cols { grid-template-columns: 1fr; }
+      .calendar { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">근무표 도구</div>
+    <div class="sub">엑셀 파일을 업로드하면 개인 근무 달력과 여러 사람의 공동 근무일을 확인할 수 있습니다.</div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>파일 및 검색 설정</h2>
+        <label for="fileInput">근무표 파일 업로드</label>
+        <input id="fileInput" type="file" accept=".xls,.xlsx,.html,.htm" />
+        <div class="hint">지원 형식: xlsx, 일반 xls, HTML 형식으로 저장된 xls</div>
+
+        <label for="personSearch">개인 조회</label>
+        <input id="personSearch" type="text" placeholder="이름/초성 검색 (예: 김, ㅂㅎㅁ)" disabled />
+        <select id="personSelect" disabled></select>
+
+        <label for="multiSelect">공동 근무 조회 (2인 이상)</label>
+        <select id="multiSelect" multiple size="10" disabled></select>
+        <div class="hint">Windows: Ctrl 클릭 / Mac: Cmd 클릭으로 여러 명 선택</div>
+
+        <div id="summary" class="chips"></div>
+        <div id="status" class="status">파일을 업로드해 주세요.</div>
+      </div>
+
+      <div class="card">
+        <div class="tabbar">
+          <button class="tab active" data-tab="personal">개인 달력</button>
+          <button class="tab" data-tab="overlap">공동 근무일</button>
+        </div>
+        <div id="content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const app = {
+      records: [],
+      names: [],
+      year: null,
+      month: null,
+      activeTab: 'personal',
+      fileName: '',
+      holidays: new Set()
+    };
+
+    const fileInput = document.getElementById('fileInput');
+    const personSearch = document.getElementById('personSearch');
+    const personSelect = document.getElementById('personSelect');
+    const multiSelect = document.getElementById('multiSelect');
+    const statusBox = document.getElementById('status');
+    const content = document.getElementById('content');
+    const summary = document.getElementById('summary');
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        app.activeTab = btn.dataset.tab;
+        render();
+      });
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        setStatus('파일을 읽는 중입니다...');
+        const rows = await parseFile(file);
+        app.fileName = file.name || '';
+        const parsed = extractSchedule(rows, app.fileName);
+        app.records = parsed.records;
+        app.names = parsed.names;
+        app.year = parsed.year;
+        app.month = parsed.month;
+        app.holidays = await loadKoreanHolidays(app.year);
+        bindSelectors();
+        renderSummary(parsed);
+        setStatus(`읽기 완료\n이름 수: ${parsed.names.length}명\n날짜 수: ${parsed.dayCount}일\n레코드 수: ${parsed.records.length}건`);
+        render();
+      } catch (err) {
+        console.error(err);
+        setStatus('파일 처리 중 오류가 발생했습니다.\n' + err.message);
+      }
+    });
+
+    personSearch.addEventListener('input', () => {
+      bindPersonOptions(personSearch.value || '');
+      render();
+    });
+    personSelect.addEventListener('change', render);
+    multiSelect.addEventListener('change', render);
+
+    function setStatus(text) {
+      statusBox.textContent = text;
+    }
+
+    function renderSummary(parsed) {
+      summary.innerHTML = '';
+      const items = [
+        `연월: ${parsed.year}-${String(parsed.month).padStart(2,'0')}`,
+        `대상자: ${parsed.names.length}명`,
+        `근무일수: ${parsed.dayCount}일`
+      ];
+      items.forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'chip';
+        span.textContent = t;
+        summary.appendChild(span);
+      });
+    }
+
+    async function parseFile(file) {
+      const buffer = await file.arrayBuffer();
+      const name = file.name.toLowerCase();
+
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        try {
+          const wb = XLSX.read(buffer, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          return XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+        } catch (e) {
+          // HTML disguised as xls fallback
+        }
+      }
+
+      const text = new TextDecoder('utf-8').decode(buffer);
+      return parseHtmlTable(text);
+    }
+
+    function parseHtmlTable(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const table = doc.querySelector('table');
+      if (!table) throw new Error('HTML 표를 찾지 못했습니다.');
+      const rows = [];
+      table.querySelectorAll('tr').forEach(tr => {
+        const row = [];
+        tr.querySelectorAll('th, td').forEach(cell => {
+          const text = (cell.textContent || '').replace(/\s+/g, ' ').trim();
+          const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+          row.push(text);
+          for (let i = 1; i < colspan; i++) row.push('');
+        });
+        rows.push(row);
+      });
+      return rows;
+    }
+
+    function extractSchedule(rows, fileName = '') {
+      if (!rows || rows.length < 3) throw new Error('시트 구조를 해석할 수 없습니다.');
+
+      const normalized = rows.map(r => r.map(v => String(v ?? '').trim()));
+      const dayHeaderIdx = findDayHeaderRow(normalized);
+      if (dayHeaderIdx < 0 || dayHeaderIdx + 1 >= normalized.length) throw new Error('날짜 헤더를 찾지 못했습니다.');
+
+      const dayRow = normalized[dayHeaderIdx];
+      const weekdayRow = normalized[dayHeaderIdx + 1] || [];
+      const dayColumns = [];
+      for (let c = 0; c < dayRow.length; c++) {
+        if (/^\d{1,2}$/.test(dayRow[c])) dayColumns.push({ col: c, day: parseInt(dayRow[c], 10), weekday: weekdayRow[c] || '' });
+      }
+      if (!dayColumns.length) throw new Error('날짜 열을 찾지 못했습니다.');
+
+      const { year, month } = inferYearMonth(normalized, dayColumns.length, fileName);
+      const nameCol = findNameColumn(normalized, dayHeaderIdx, dayColumns[0].col);
+
+      const dataStart = dayHeaderIdx + 2;
+      const records = [];
+      const nameSet = new Set();
+
+      for (let r = dataStart; r < normalized.length; r++) {
+        const row = normalized[r];
+        if (!row || !row.some(Boolean)) continue;
+        const name = extractName(row, nameCol, dayColumns[0].col);
+        if (!name) continue;
+        if (isMetaName(name)) continue;
+
+        let hasShift = false;
+        for (const dc of dayColumns) {
+          const rawShift = (row[dc.col] || '').trim();
+          const shift = normalizeShift(rawShift);
+          if (!shift) continue;
+          hasShift = true;
+          records.push({
+            name,
+            day: dc.day,
+            date: `${year}-${String(month).padStart(2,'0')}-${String(dc.day).padStart(2,'0')}`,
+            weekday: dc.weekday,
+            rawShift,
+            shift,
+          });
+        }
+        if (hasShift) nameSet.add(name);
+      }
+
+      const names = Array.from(nameSet);
+      if (!names.length || !records.length) throw new Error('근무 데이터가 추출되지 않았습니다.');
+
+      return { records, names, year, month, dayCount: dayColumns.length };
+    }
+
+    function findDayHeaderRow(rows) {
+      for (let i = 0; i < Math.min(rows.length, 15); i++) {
+        const count = rows[i].filter(v => /^\d{1,2}$/.test(v)).length;
+        if (count >= 20) return i;
+      }
+      return -1;
+    }
+
+    function inferYearMonth(rows, dayCount, fileName = '') {
+      const joined = rows.slice(0, 8).flat().join(' ');
+      const textCandidates = [String(fileName || ''), joined];
+
+      for (const text of textCandidates) {
+        const m = text.match(/(20\d{2})[^\d]?(\d{2})/);
+        if (m) {
+          const year = parseInt(m[1], 10);
+          const month = parseInt(m[2], 10);
+          if (month >= 1 && month <= 12) return { year, month };
+        }
+      }
+
+      for (const text of textCandidates) {
+        const m = text.match(/(20\d{2})[-./년_\s]+(\d{1,2})/);
+        if (m) {
+          const year = parseInt(m[1], 10);
+          const month = parseInt(m[2], 10);
+          if (month >= 1 && month <= 12) return { year, month };
+        }
+      }
+
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    }
+
+    function findNameColumn(rows, dayHeaderIdx, dayStartCol) {
+      const searchRows = rows.slice(0, Math.min(dayHeaderIdx + 2, 8));
+      let fallback = -1;
+      for (let c = 0; c < dayStartCol; c++) {
+        const labels = searchRows.map(r => (r[c] || '').trim());
+        if (labels.some(v => /^(근무자|이름|성명)$/.test(v))) return c;
+        if (fallback < 0 && labels.some(v => /(근무자|이름|성명)/.test(v))) fallback = c;
+      }
+      if (fallback >= 0) return fallback;
+      return Math.min(1, Math.max(0, dayStartCol - 1));
+    }
+
+    function extractName(row, nameCol, dayStartCol) {
+      const direct = ((row[nameCol] || '') + '').trim();
+      if (isLikelyPersonName(direct)) return direct;
+
+      const candidates = row
+        .slice(0, Math.min(dayStartCol, 6))
+        .map(v => (v || '').trim())
+        .filter(v => isLikelyPersonName(v));
+      if (!candidates.length) return '';
+      return candidates[0];
+    }
+
+    function isLikelyPersonName(value) {
+      if (!value) return false;
+      if (/^\d+$/.test(value)) return false;
+      if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/.test(value)) return false;
+      if (/^(중환자실|병동|부서|사번|입사일|직책)$/i.test(value)) return false;
+      if (value.length > 12) return false;
+      return /[가-힣A-Za-z]/.test(value);
+    }
+
+    function isMetaName(name) {
+      const blocked = ['날짜', '근무', '합계', '통계', '비고', '구분'];
+      return blocked.some(word => name.includes(word));
+    }
+
+    function normalizeShift(v) {
+      if (!v) return '';
+      const raw = String(v).replace(/\s+/g, '').trim();
+      if (!raw) return '';
+      const upper = raw.toUpperCase();
+      if (/^(OFF|O|휴무|연차|반차|휴가|오프|X)$/.test(upper)) return 'OFF';
+      return upper;
+    }
+
+    function getChoseong(text) {
+      const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+      return String(text || '').split('').map(ch => {
+        const code = ch.charCodeAt(0);
+        if (code >= 0xAC00 && code <= 0xD7A3) {
+          return CHO[Math.floor((code - 0xAC00) / 588)] || ch;
+        }
+        return ch;
+      }).join('');
+    }
+
+    function matchesPersonSearch(name, keyword) {
+      const normalizedName = String(name || '').trim();
+      const normalizedKeyword = String(keyword || '').trim();
+      if (!normalizedKeyword) return true;
+      return normalizedName.startsWith(normalizedKeyword) || getChoseong(normalizedName).startsWith(normalizedKeyword);
+    }
+
+
+    async function loadKoreanHolidays(year) {
+      try {
+        const res = await fetch(`https://holidays.hyunbin.page/${year}.json`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('공휴일 데이터를 가져오지 못했습니다.');
+        const data = await res.json();
+        return new Set(Object.keys(data || {}));
+      } catch (err) {
+        console.warn('공휴일 로딩 실패', err);
+        return new Set();
+      }
+    }
+
+    function isHolidayDate(year, month, day) {
+      const key = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      return app.holidays && app.holidays.has(key);
+    }
+
+    function bindSelectors() {
+      bindPersonOptions(personSearch.value || '');
+      multiSelect.innerHTML = '';
+      for (const name of app.names) {
+        const opt2 = document.createElement('option');
+        opt2.value = name;
+        opt2.textContent = name;
+        multiSelect.appendChild(opt2);
+      }
+      personSearch.disabled = false;
+      multiSelect.disabled = false;
+    }
+
+    function bindPersonOptions(filterText = '') {
+      const prevValue = personSelect.value;
+      const keyword = String(filterText || '').trim();
+      const filteredNames = !keyword
+        ? app.names
+        : app.names.filter(name => matchesPersonSearch(name, keyword));
+
+      personSelect.innerHTML = '';
+      if (!filteredNames.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '검색 결과 없음';
+        personSelect.appendChild(opt);
+        personSelect.disabled = true;
+        return;
+      }
+
+      for (const name of filteredNames) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        personSelect.appendChild(opt);
+      }
+
+      personSelect.disabled = false;
+      if (filteredNames.includes(prevValue)) personSelect.value = prevValue;
+      else personSelect.value = filteredNames[0];
+    }
+
+    function getSelectedMultiNames() {
+      return Array.from(multiSelect.selectedOptions).map(o => o.value);
+    }
+
+    function removeSelectedPerson(name) {
+      Array.from(multiSelect.options).forEach(opt => {
+        if (opt.value === name) opt.selected = false;
+      });
+      render();
+    }
+
+    function render() {
+      if (!app.records.length) {
+        content.innerHTML = '<div class="muted">파일을 업로드하면 결과가 여기에 표시됩니다.</div>';
+        return;
+      }
+      if (app.activeTab === 'personal') renderPersonal();
+      else renderOverlap();
+    }
+
+    function renderPersonal() {
+      const name = personSelect.value || (app.names[0] || '');
+      if (!name) {
+        content.innerHTML = '<div class="muted">검색 결과가 없습니다.</div>';
+        return;
+      }
+      const byDay = recordsForName(name).map(item => {
+        const coworkers = getNamesForDayShift(item.day, item.shift);
+        const coworkerHtml = coworkers.length
+          ? coworkers.map((n, i) => {
+              const line = `${i + 1}. ${escapeHtml(n)}`;
+              return n === name ? `<span style="color: var(--accent); font-weight: 700;">${line}</span>` : line;
+            }).join('<br>')
+          : '없음';
+        return {
+          ...item,
+          coworkers,
+          coworkerHtml
+        };
+      });
+      content.innerHTML = `
+        <div class="section-title">${escapeHtml(name)} 개인 근무 달력</div>
+        ${calendarHtml(byDay, { showCoworkers: true })}
+      `;
+    }
+
+    function renderOverlap() {
+      const selected = getSelectedMultiNames();
+      if (selected.length < 2) {
+        content.innerHTML = '<div class="muted">공동 근무일은 2명 이상 선택하면 표시됩니다.</div>';
+        return;
+      }
+      const overlaps = findOverlaps(selected);
+      const selectedHtml = selected.map(name => `
+        <span class="person-pill">
+          <span>${escapeHtml(name)}</span>
+          <button class="pill-x" type="button" data-remove-name="${escapeHtml(name)}" aria-label="${escapeHtml(name)} 제거">×</button>
+        </span>
+      `).join('');
+      content.innerHTML = `
+        <div class="section-title">공동 근무일</div>
+        <div class="small">같은 날짜에 모두 근무하고, 근무 코드가 문자 그대로 완전히 같을 때만 표시합니다.</div>
+        <div class="selected-people">${selectedHtml}</div>
+        ${calendarHtml(overlaps.map(x => ({ day: x.day, shift: x.shift })), { showCoworkers: false, onlyMarkedDays: true, blankText: '-' })}
+        <div style="height:16px"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th></th><th>날짜</th><th>근무</th></tr></thead>
+            <tbody>
+              ${overlaps.length ? overlaps.map((x, i) => `<tr><td>(${i + 1})</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.shift)}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">공동 근무일이 없습니다.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      content.querySelectorAll('[data-remove-name]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          removeSelectedPerson(btn.getAttribute('data-remove-name'));
+        });
+      });
+    }
+
+    function recordsForName(name) {
+      return app.records.filter(r => r.name === name).sort((a, b) => a.day - b.day);
+    }
+
+    function getNamesForDayShift(day, shift) {
+      const matched = new Set(
+        app.records
+          .filter(r => r.day === day && r.shift === shift && r.shift !== 'OFF')
+          .map(r => r.name)
+      );
+      return app.names.filter(n => matched.has(n));
+    }
+
+    function findOverlaps(names) {
+      const selected = Array.from(new Set(names));
+      const days = Array.from(new Set(
+        app.records
+          .filter(r => selected.includes(r.name))
+          .map(r => r.day)
+      )).sort((a, b) => a - b);
+
+      const overlaps = [];
+      for (const day of days) {
+        const daily = selected.map(name => app.records.find(r => r.name === name && r.day === day));
+        if (daily.some(x => !x)) continue;
+        if (daily.some(x => x.shift === 'OFF')) continue;
+
+        const normalizedShifts = Array.from(new Set(daily.map(x => x.shift)));
+        if (normalizedShifts.length !== 1) continue;
+
+        overlaps.push({
+          day,
+          shift: daily[0].rawShift || daily[0].shift,
+          date: `${app.year}-${String(app.month).padStart(2,'0')}-${String(day).padStart(2,'0')}`,
+          members: daily.map(x => `${x.name}(${x.rawShift || x.shift})`)
+        });
+      }
+      return overlaps;
+    }
+
+    function calendarHtml(items, options = {}) {
+      const totalDays = new Date(app.year, app.month, 0).getDate();
+      const firstDay = new Date(app.year, app.month - 1, 1).getDay();
+      const map = new Map(items.map(item => [item.day, item]));
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      let html = '<div class="calendar">';
+      html += weekdays.map((d, idx) => {
+        const cls = idx === 0 ? 'weekday sun' : idx === 6 ? 'weekday sat' : 'weekday';
+        return `<div class="${cls}">${d}</div>`;
+      }).join('');
+      for (let i = 0; i < firstDay; i++) html += '<div class="day empty"></div>';
+      for (let day = 1; day <= totalDays; day++) {
+        const item = map.get(day);
+        const weekIdx = new Date(app.year, app.month - 1, day).getDay();
+        const classes = ['day'];
+        if (weekIdx === 0) classes.push('sun');
+        else if (weekIdx === 6) classes.push('sat');
+        else if (isHolidayDate(app.year, app.month, day)) classes.push('holiday');
+        const className = classes.join(' ');
+        if (!item && options.onlyMarkedDays) {
+          html += `<div class="${className}"><div class="date">${day}</div><div class="muted">${escapeHtml(options.blankText || '-')}</div></div>`;
+          continue;
+        }
+        if (!item) {
+          html += `<div class="${className}"><div class="date">${day}</div><div class="muted">근무 없음</div></div>`;
+          continue;
+        }
+        html += `
+          <div class="${className}">
+            <div class="date">${day}</div>
+            <div class="shift">${escapeHtml(item.rawShift || item.shift || '')}</div>
+            ${options.showCoworkers ? `<div class="coworkers">${item.coworkerHtml || escapeHtml(item.coworkerLabel || (item.coworkers && item.coworkers.length ? item.coworkers.join(', ') : '없음')).replaceAll('\n', '<br>')}</div>` : ''}
+          </div>
+        `;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+  </script>
+</body>
+</html>
