@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>근무표 도구</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg: #f7f8fb;
@@ -143,23 +145,48 @@
       font-weight: 800;
       margin: 8px 0 12px;
     }
+    .calendar-shell {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
     .calendar {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 2px;
+      min-width: 630px;
+    }
+    .calendar.personal-tight {
+      gap: 0;
     }
     .weekday, .day {
       background: white;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      min-height: 120px;
-      padding: 10px;
+      border-radius: 8px;
+      min-height: 116px;
+      padding: 6px;
+    }
+    .calendar.personal-tight .weekday,
+    .calendar.personal-tight .day {
+      border-radius: 0;
+      padding: 3px 1px;
+    }
+    .calendar.personal-tight .day {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      justify-items: center;
+      align-content: start;
+      row-gap: 1px;
     }
     .weekday {
       min-height: auto;
       text-align: center;
       font-weight: 800;
       background: #f8fafc;
+      padding: 1px 2px;
+      line-height: 1;
+      border-radius: 4px;
     }
     .weekday.sun, .day.sun, .day.holiday {
       background: #fee2e2;
@@ -177,13 +204,15 @@
     }
     .shift {
       display: inline-block;
-      padding: 4px 8px;
+      width: fit-content;
+      padding: 2px 8px;
       border-radius: 999px;
       background: var(--accent-soft);
       color: var(--accent);
       font-weight: 800;
       font-size: 12px;
-      margin-bottom: 8px;
+      text-align: center;
+      margin: 0;
     }
     .coworkers {
       font-size: 13px;
@@ -194,6 +223,50 @@
     .me-name {
       color: var(--accent);
       font-weight: 800;
+    }
+    .date-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin: 0 auto 2px;
+      text-align: center;
+      width: auto;
+      max-width: 100%;
+      white-space: nowrap;
+    }
+    .date-row .date {
+      margin-bottom: 0;
+    }
+    .calendar.personal-tight .date-row {
+      gap: 4px;
+      padding: 0;
+      width: auto;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .calendar.personal-tight .coworkers {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      width: max-content;
+      max-width: calc(100% - 2px);
+      margin: 0 auto;
+      padding: 0;
+      text-align: left;
+      line-height: 1.42;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    .coworker-line {
+      display: block;
+      width: auto;
+      max-width: 100%;
+    }
+    #printRoot {
+      display: none;
     }
     .muted { color: var(--muted); }
     .table-wrap { overflow: auto; }
@@ -216,9 +289,65 @@
       gap: 16px;
     }
     .small { font-size: 12px; color: var(--muted); }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .capture-scope {
+      background: white;
+      border-radius: 12px;
+    }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: #cbd5e1; }
     @media (max-width: 960px) {
       .grid, .two-cols { grid-template-columns: 1fr; }
-      .calendar { grid-template-columns: repeat(2, 1fr); }
+      .wrap { padding: 14px; }
+      .card { padding: 14px; }
+      .calendar { min-width: 630px; gap: 2px; }
+      .calendar.personal-tight { gap: 0; }
+      .weekday, .day { min-height: 92px; padding: 6px; border-radius: 8px; }
+      .calendar.personal-tight .weekday, .calendar.personal-tight .day { border-radius: 0; padding: 3px 0; }
+      .weekday { padding: 2px 3px; border-radius: 6px; }
+      .date { font-size: 13px; margin-bottom: 5px; }
+      .shift { font-size: 11px; padding: 2px 7px; }
+      .coworkers { font-size: 12px; line-height: 1.55; }
+    }
+    @media print {
+      body { background: white; }
+      body * { visibility: hidden !important; }
+      #printRoot, #printRoot * { visibility: visible !important; }
+      #printRoot {
+        display: block !important;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        padding: 0;
+        margin: 0;
+      }
+      #printRoot .calendar-shell { overflow: visible !important; }
+      #printRoot .calendar { min-width: 0; width: 100%; gap: 2px; }
+      #printRoot .weekday, #printRoot .day { min-height: 100px; break-inside: avoid; padding: 6px; }
+      #printRoot .weekday { padding: 2px 4px; }
+      #printRoot .btn, #printRoot .small { display: none !important; }
     }
   </style>
 </head>
@@ -246,12 +375,13 @@
         <div id="status" class="status">파일을 업로드해 주세요.</div>
       </div>
 
-      <div class="card">
+      <div class="card print-scope">
         <div class="tabbar">
           <button class="tab active" data-tab="personal">개인 달력</button>
           <button class="tab" data-tab="overlap">공동 근무일</button>
         </div>
         <div id="content"></div>
+        <div id="printRoot" aria-hidden="true"></div>
       </div>
     </div>
   </div>
@@ -274,6 +404,7 @@
     const statusBox = document.getElementById('status');
     const content = document.getElementById('content');
     const summary = document.getElementById('summary');
+    const printRoot = document.getElementById('printRoot');
 
     document.querySelectorAll('.tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -605,6 +736,7 @@
       const name = personSelect.value || (app.names[0] || '');
       if (!name) {
         content.innerHTML = '<div class="muted">검색 결과가 없습니다.</div>';
+        printRoot.innerHTML = '';
         return;
       }
       const byDay = recordsForName(name).map(item => {
@@ -612,8 +744,9 @@
         const coworkerHtml = coworkers.length
           ? coworkers.map((n, i) => {
               const line = `${i + 1}. ${escapeHtml(n)}`;
-              return n === name ? `<span style="color: var(--accent); font-weight: 700;">${line}</span>` : line;
-            }).join('<br>')
+              const body = n === name ? `<span class="me-name">${line}</span>` : line;
+              return `<div class="coworker-line">${body}</div>`;
+            }).join('')
           : '없음';
         return {
           ...item,
@@ -621,14 +754,34 @@
           coworkerHtml
         };
       });
-      content.innerHTML = `
-        <div class="section-title">${escapeHtml(name)} 개인 근무 달력</div>
-        ${calendarHtml(byDay, { showCoworkers: true })}
+      const personalCalendarMarkup = calendarHtml(byDay, { showCoworkers: true, personalTight: true });
+      const personalHtml = `
+        <div class="section-head">
+          <div class="section-title">${escapeHtml(name)} 개인 근무 달력</div>
+          <div class="actions">
+            <button type="button" class="btn" id="printPersonalBtn">화면 그대로 프린트</button>
+            <button type="button" class="btn" id="savePersonalPngBtn">PNG 저장</button>
+            <button type="button" class="btn" id="savePersonalPdfBtn">PDF 저장</button>
+          </div>
+        </div>
+        <div id="personalCapture" class="capture-scope">
+          ${personalCalendarMarkup}
+        </div>
       `;
+      content.innerHTML = personalHtml;
+      printRoot.innerHTML = `<div class="section-title">${escapeHtml(name)} 개인 근무 달력</div>${personalCalendarMarkup}`;
+
+      const printBtn = document.getElementById('printPersonalBtn');
+      const pngBtn = document.getElementById('savePersonalPngBtn');
+      const pdfBtn = document.getElementById('savePersonalPdfBtn');
+      if (printBtn) printBtn.addEventListener('click', async () => printElementAsImage(document.getElementById('personalCapture'), `${name} 개인 근무 달력`));
+      if (pngBtn) pngBtn.addEventListener('click', async () => saveElementAsPng(document.getElementById('personalCapture'), `${app.year}-${String(app.month).padStart(2,'0')}_${name}_개인근무달력.png`));
+      if (pdfBtn) pdfBtn.addEventListener('click', async () => saveElementAsPdf(document.getElementById('personalCapture'), `${app.year}-${String(app.month).padStart(2,'0')}_${name}_개인근무달력.pdf`));
     }
 
     function renderOverlap() {
       const selected = getSelectedMultiNames();
+      printRoot.innerHTML = '';
       if (selected.length < 2) {
         content.innerHTML = '<div class="muted">공동 근무일은 2명 이상 선택하면 표시됩니다.</div>';
         return;
@@ -644,7 +797,7 @@
         <div class="section-title">공동 근무일</div>
         <div class="small">같은 날짜에 모두 근무하고, 근무 코드가 문자 그대로 완전히 같을 때만 표시합니다.</div>
         <div class="selected-people">${selectedHtml}</div>
-        ${calendarHtml(overlaps.map(x => ({ day: x.day, shift: x.shift })), { showCoworkers: false, onlyMarkedDays: true, blankText: '-' })}
+        ${calendarHtml(overlaps.map(x => ({ day: x.day, shift: x.shift })), { showCoworkers: false, onlyMarkedDays: true, blankText: '-', personalTight: true })}
         <div style="height:16px"></div>
         <div class="table-wrap">
           <table>
@@ -703,12 +856,69 @@
       return overlaps;
     }
 
+    async function captureElement(element) {
+      if (!element) throw new Error('저장할 영역을 찾지 못했습니다.');
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: Math.max(2, window.devicePixelRatio || 1),
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.scrollWidth,
+      });
+      return canvas;
+    }
+
+    async function saveElementAsPng(element, filename) {
+      try {
+        const canvas = await captureElement(element);
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = filename;
+        link.click();
+      } catch (err) {
+        alert('PNG 저장 중 오류가 발생했습니다. ' + err.message);
+      }
+    }
+
+    async function saveElementAsPdf(element, filename) {
+      try {
+        const canvas = await captureElement(element);
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: canvas.width >= canvas.height ? 'landscape' : 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save(filename);
+      } catch (err) {
+        alert('PDF 저장 중 오류가 발생했습니다. ' + err.message);
+      }
+    }
+
+    async function printElementAsImage(element, title) {
+      try {
+        const canvas = await captureElement(element);
+        const imgData = canvas.toDataURL('image/png');
+        const win = window.open('', '_blank');
+        if (!win) throw new Error('팝업이 차단되어 프린트 창을 열지 못했습니다.');
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title><style>html,body{margin:0;padding:0;background:#fff;}img{display:block;width:100%;height:auto;} @page{margin:8mm; size:auto;} </style></head><body><img src="${imgData}" alt="print"></body></html>`);
+        win.document.close();
+        win.onload = () => {
+          win.focus();
+          win.print();
+        };
+      } catch (err) {
+        alert('프린트 준비 중 오류가 발생했습니다. ' + err.message);
+      }
+    }
+
     function calendarHtml(items, options = {}) {
       const totalDays = new Date(app.year, app.month, 0).getDate();
       const firstDay = new Date(app.year, app.month - 1, 1).getDay();
       const map = new Map(items.map(item => [item.day, item]));
       const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-      let html = '<div class="calendar">';
+      const calendarClass = options.personalTight ? 'calendar personal-tight' : 'calendar';
+      let html = `<div class="calendar-shell"><div class="${calendarClass}">`;
       html += weekdays.map((d, idx) => {
         const cls = idx === 0 ? 'weekday sun' : idx === 6 ? 'weekday sat' : 'weekday';
         return `<div class="${cls}">${d}</div>`;
@@ -732,13 +942,15 @@
         }
         html += `
           <div class="${className}">
-            <div class="date">${day}</div>
-            <div class="shift">${escapeHtml(item.rawShift || item.shift || '')}</div>
+            <div class="date-row">
+              <div class="date">${day}</div>
+              <div class="shift">${escapeHtml(item.rawShift || item.shift || '')}</div>
+            </div>
             ${options.showCoworkers ? `<div class="coworkers">${item.coworkerHtml || escapeHtml(item.coworkerLabel || (item.coworkers && item.coworkers.length ? item.coworkers.join(', ') : '없음')).replaceAll('\n', '<br>')}</div>` : ''}
           </div>
         `;
       }
-      html += '</div>';
+      html += '</div></div>';
       return html;
     }
 
