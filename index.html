@@ -2457,7 +2457,8 @@
         const printBg = getComputedStyle(document.body).backgroundColor || '#ffffff';
         const win = window.open('', '_blank');
         if (!win) throw new Error('팝업이 차단되어 프린트 창을 열지 못했습니다.');
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title><style>html,body{margin:0;padding:0;background:${printBg};}body{display:flex;align-items:flex-start;justify-content:center;}img{display:block;max-width:100%;width:auto;height:auto;} @page{margin:8mm; size:auto;} </style></head><body><img src="${imgData}" alt="print"></body></html>`);
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title><style>html,body{margin:0;padding:0;background:${printBg};}body{display:flex;align-items:flex-start;justify-content:center;}img{display:block;max-width:100%;width:auto;height:auto;} @page{margin:8mm; size:auto;} </style></head><body><img src="${imgData}" alt="print">  <script src="./github-current-loader.js"></script>
+</body></html>`);
         win.document.close();
         win.onload = () => {
           win.focus();
@@ -2520,5 +2521,6 @@
         .replaceAll("'", '&#39;');
     }
   </script>
+  <script src="./github-current-loader.js"></script>
 </body>
 </html>
