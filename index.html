@@ -1636,6 +1636,16 @@
       personSelect.style.maxWidth = '';
     }
 
+    function getRequestedPersonFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return String(params.get('name') || '').trim();
+      } catch (err) {
+        console.warn('URL 파라미터를 읽지 못했습니다.', err);
+        return '';
+      }
+    }
+
     document.querySelectorAll('.tab').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -1733,7 +1743,7 @@
         app.names = parsed.names;
         app.year = parsed.year;
         app.month = parsed.month;
-        app.preselectedPerson = guessPersonFromFileName(app.fileName, parsed.names);
+        app.preselectedPerson = getRequestedPersonFromUrl() || guessPersonFromFileName(app.fileName, parsed.names);
         app.activeShiftFilter = '';
         app.holidays = await loadKoreanHolidays(app.year);
         bindSelectors();
